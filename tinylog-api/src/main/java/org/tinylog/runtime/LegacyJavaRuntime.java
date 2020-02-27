@@ -17,6 +17,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Locale;
+import java.util.function.IntFunction;
 
 import org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement;
 import org.tinylog.Level;
@@ -27,11 +28,14 @@ import org.tinylog.provider.InternalLogger;
  */
 final class LegacyJavaRuntime extends AbstractJavaRuntime {
 
+	/** Lambda which refers to {@link sun.reflect.Reflection#getCallerClass(int)}. */
+	private final IntFunction<Class<?>> sunReflectionStackTraceElementGetter;
 	private final boolean hasSunReflection;
 	private final Method stackTraceElementGetter;
 
-	/** */
+	/** Creates new instance. */
 	LegacyJavaRuntime() {
+		sunReflectionStackTraceElementGetter = getSunReflectionCallerClassGetter();
 		hasSunReflection = verifySunReflection();
 		stackTraceElementGetter = getStackTraceElementGetter();
 	}
@@ -112,22 +116,33 @@ final class LegacyJavaRuntime extends AbstractJavaRuntime {
 	}
 
 	/**
-	 * Checks whether {@link sun.reflect.Reflection#getCallerClass(int)} is available.
+	 * Checks whether {@link sun.reflect.Reflection#getCallerClass(int)} is available
+	 * and can be called.
 	 *
-	 * @return {@code true} if available, {@code true} if not
+	 * @return {@code true} if available, {@code false} if not.
 	 */
 	@SuppressWarnings("removal")
 	@IgnoreJRERequirement
-	private static boolean verifySunReflection() {
+	private boolean verifySunReflection() {
+		if(sunReflectionStackTraceElementGetter == null) return false;
+
 		try {
-			return AbstractJavaRuntime.class.equals(sun.reflect.Reflection.getCallerClass(1));
-		} catch (NoClassDefFoundError error) {
-			return false;
-		} catch (NoSuchMethodError error) {
-			return false;
+			return AbstractJavaRuntime.class.equals(sunReflectionStackTraceElementGetter.apply(1));
 		} catch (Exception ex) {
 			return false;
 		}
+	}
+
+	/**
+	 * Tries to return reference to {@link sun.reflect.Reflection#getCallerClass(int)}
+	 * with help of java reflection.
+	 *
+	 * @return lambda which calls {@link sun.reflect.Reflection#getCallerClass(int)} if it is accessible
+	 * else returns {@code null}.
+	 */
+	private static IntFunction<Class<?>> getSunReflectionCallerClassGetter() {
+		//TODO implement
+		return null;
 	}
 
 	/**
